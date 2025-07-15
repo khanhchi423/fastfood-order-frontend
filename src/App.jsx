@@ -1,41 +1,71 @@
 import { useState, useEffect } from 'react';
-import Header from './components/Header';
-import Tabs from './components/Tabs';
-import MenuItem from './components/MenuItem';
-import Cart from './components/Cart';
-import CustomerForm from './components/CustomerForm';
-import OrderCard from './components/OrderCard';
-import OrderStatus from './components/OrderStatus';
-import { loadMenuItems, loadOrders, placeOrder, confirmOrder, cancelOrder } from './services/api';
-import './styles/App.css';
-
+import { Loader } from 'lucide-react';
+import Header from './components/layout/Header';
+import Footer from './components/layout/Footer';
+import Tabs from './components/layout/Tabs';
+import SearchBar from './components/home/SearchBar';
+import Categories from './components/home/Categories';
+import OrderPage from './pages/OrderPage';
+import OrderHistoryPage from './pages/OrderHistoryPage';
+import OrderStatus from './components/shared/OrderStatus';
+import { loadMenuItems, loadOrders } from './services/OrderService';
+import './styles/App.css'
 function App() {
+    // Basic state
     const [activeTab, setActiveTab] = useState('order');
     const [menuItems, setMenuItems] = useState([]);
-    const [cart, setCart] = useState([]);
-    const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(false);
     const [orderStatus, setOrderStatus] = useState(null);
-    const [customerInfo, setCustomerInfo] = useState({
-        name: '',
-        phone: '',
-        address: ''
+
+    // Search and filter state
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchLoading, setSearchLoading] = useState(false);
+    const [categoryFilter, setCategoryFilter] = useState('all');
+
+    // Cart state
+    const [cart, setCart] = useState(() => {
+        const savedCart = localStorage.getItem('cart');
+        return savedCart ? JSON.parse(savedCart) : [];
     });
 
+    // Orders state
+    const [orders, setOrders] = useState([]);
+
+    // Save cart to localStorage
     useEffect(() => {
-        loadMenuData();
-        loadOrdersData();
+        localStorage.setItem('cart', JSON.stringify(cart));
+    }, [cart]);
+
+    // Initial data loading
+    useEffect(() => {
+        loadInitialData();
     }, []);
+
+    const loadInitialData = async () => {
+        setLoading(true);
+        try {
+            await Promise.all([
+                loadMenuData(),
+                loadOrdersData()
+            ]);
+        } catch (error) {
+            console.error('Error loading initial data:', error);
+            setOrderStatus({
+                type: 'error',
+                message: 'Có lỗi xảy ra khi tải dữ liệu. Vui lòng thử lại sau.'
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const loadMenuData = async () => {
         try {
-            setLoading(true);
             const items = await loadMenuItems();
             setMenuItems(items);
         } catch (error) {
             console.error('Error loading menu:', error);
-        } finally {
-            setLoading(false);
+            throw error;
         }
     };
 
@@ -45,183 +75,119 @@ function App() {
             setOrders(ordersData);
         } catch (error) {
             console.error('Error loading orders:', error);
+            throw error;
         }
     };
 
-    const addToCart = (item) => {
-        const existingItem = cart.find(cartItem => cartItem.itemId === item.itemId);
-        if (existingItem) {
-            setCart(cart.map(cartItem => 
-                cartItem.itemId === item.itemId 
-                    ? { ...cartItem, quantity: cartItem.quantity + 1 }
-                    : cartItem
-            ));
-        } else {
-            setCart([...cart, { ...item, quantity: 1 }]);
-        }
+    const handleSearch = (query) => {
+        setSearchQuery(query);
+        setSearchLoading(true);
+
+        // Reset category filter when searching
+        setCategoryFilter('all');
+
+        // Simulate search delay
+        setTimeout(() => {
+            setSearchLoading(false);
+        }, 300);
     };
 
-    const removeFromCart = (itemId) => {
-        setCart(cart.filter(item => item.itemId !== itemId));
+    const handleCategorySelect = (category) => {
+        setCategoryFilter(category);
+        // Reset search when changing category
+        setSearchQuery('');
     };
 
-    const updateQuantity = (itemId, quantity) => {
-        if (quantity <= 0) {
-            removeFromCart(itemId);
-        } else {
-            setCart(cart.map(item => 
-                item.itemId === itemId 
-                    ? { ...item, quantity: quantity }
-                    : item
-            ));
-        }
-    };
-
-    const getTotalAmount = () => {
-        return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
-    };
-
-    const handleCustomerInfoChange = (field, value) => {
-        setCustomerInfo(prev => ({
-            ...prev,
-            [field]: value
-        }));
-    };
-
-    const handlePlaceOrder = async () => {
-        if (!customerInfo.name || !customerInfo.phone || !customerInfo.address) {
-            setOrderStatus({ type: 'error', message: 'Please fill in all customer information' });
-            return;
-        }
-
-        if (cart.length === 0) {
-            setOrderStatus({ type: 'error', message: 'Please add items to your cart' });
-            return;
-        }
-
-        try {
-            setLoading(true);
-            const orderData = {
-                customerName: customerInfo.name,
-                customerPhone: customerInfo.phone,
-                customerAddress: customerInfo.address,
-                items: cart.map(item => ({
-                    itemId: item.itemId,
-                    quantity: item.quantity
-                }))
-            };
-
-            const result = await placeOrder(orderData);
-            setOrderStatus({ 
-                type: 'success', 
-                message: `Order placed successfully! Order ID: ${result.orderId}`,
-                orderId: result.orderId
-            });
-            setCart([]);
-            setCustomerInfo({ name: '', phone: '', address: '' });
+    const handleTabChange = (tab) => {
+        setActiveTab(tab);
+        // Clear any existing status messages
+        setOrderStatus(null);
+        
+        // Reset filters
+        setSearchQuery('');
+        setCategoryFilter('all');
+        
+        // Reload orders when switching to orders tab
+        if (tab === 'orders') {
             loadOrdersData();
-        } catch (error) {
-            console.error('Error placing order:', error);
-            setOrderStatus({ type: 'error', message: 'Failed to place order' });
-        } finally {
-            setLoading(false);
         }
     };
 
-    const handleConfirmOrder = async (orderId) => {
-        try {
-            await confirmOrder(orderId);
-            setOrderStatus({ type: 'success', message: 'Order confirmed successfully!' });
-            loadOrdersData();
-        } catch (error) {
-            console.error('Error confirming order:', error);
-            setOrderStatus({ type: 'error', message: 'Failed to confirm order' });
-        }
-    };
+    // Filter menu items based on search and category
+    const filteredMenuItems = menuItems.filter(item => {
+        const matchesSearch = searchQuery 
+            ? item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              item.description.toLowerCase().includes(searchQuery.toLowerCase())
+            : true;
 
-    const handleCancelOrder = async (orderId) => {
-        try {
-            await cancelOrder(orderId);
-            setOrderStatus({ type: 'success', message: 'Order cancelled successfully!' });
-            loadOrdersData();
-        } catch (error) {
-            console.error('Error cancelling order:', error);
-            setOrderStatus({ type: 'error', message: 'Failed to cancel order' });
-        }
-    };
+        const matchesCategory = categoryFilter === 'all' 
+            ? true 
+            : item.category === categoryFilter;
+
+        return matchesSearch && matchesCategory;
+    });
+
+    if (loading && !menuItems.length) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <Loader className="w-8 h-8 animate-spin mx-auto text-green-500" />
+                    <p className="mt-2 text-gray-600">Đang tải dữ liệu...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="container">
-            <Header />
+        <div className="min-h-screen bg-gray-50 flex flex-col">
+            <Header cartItemCount={cart.length} />
             
-            <div className="content">
-                <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
-                
-                <OrderStatus orderStatus={orderStatus} />
-                
-                {activeTab === 'order' && (
-                    <>
-                        {loading ? (
-                            <div className="loading">Loading menu...</div>
-                        ) : (
-                            <div className="menu-section">
-                                {menuItems.map(item => {
-                                    const cartItem = cart.find(c => c.itemId === item.itemId);
-                                    return (
-                                        <MenuItem
-                                            key={item.itemId}
-                                            item={item}
-                                            cartItem={cartItem}
-                                            onAddToCart={addToCart}
-                                            onUpdateQuantity={updateQuantity}
-                                            onRemoveFromCart={removeFromCart}
-                                        />
-                                    );
-                                })}
-                            </div>
-                        )}
+            <main className="flex-grow">
+                <div className="max-w-7xl mx-auto px-4 py-6">
+                    {/* Search Bar */}
+                    <div className="mb-8">
+                        <SearchBar 
+                            onSearch={handleSearch}
+                            loading={searchLoading}
+                            initialValue={searchQuery}
+                        />
+                    </div>
+
+                    {/* Categories */}
+                    <div className="mb-8">
+                        <Categories 
+                            onCategorySelect={handleCategorySelect}
+                            selectedCategory={categoryFilter}
+                        />
+                    </div>
+
+                    {/* Tabs and Content */}
+                    <div>
+                        <Tabs activeTab={activeTab} onTabChange={handleTabChange} />
                         
-                        {cart.length > 0 && (
-                            <>
-                                <Cart 
-                                    cart={cart}
-                                    onUpdateQuantity={updateQuantity}
-                                    onRemoveFromCart={removeFromCart}
-                                    totalAmount={getTotalAmount()}
-                                />
-                                
-                                <CustomerForm
-                                    customerInfo={customerInfo}
-                                    onInfoChange={handleCustomerInfoChange}
-                                    onPlaceOrder={handlePlaceOrder}
-                                    loading={loading}
-                                    totalAmount={getTotalAmount()}
-                                />
-                            </>
-                        )}
-                    </>
-                )}
-                
-                {activeTab === 'orders' && (
-                    <div className="orders-section">
-                        <h2 className="section-title">Orders History</h2>
-                        {orders.length === 0 ? (
-                            <div className="empty-state">No orders found.</div>
+                        <OrderStatus orderStatus={orderStatus} />
+                        
+                        {activeTab === 'order' ? (
+                            <OrderPage
+                                menuItems={filteredMenuItems}
+                                loading={loading || searchLoading}
+                                cart={cart}
+                                setCart={setCart}
+                                orderStatus={orderStatus}
+                                setOrderStatus={setOrderStatus}
+                            />
                         ) : (
-                            <div className="orders-grid">
-                                {orders.map(order => (
-                                    <OrderCard
-                                        key={order.orderId}
-                                        order={order}
-                                        onConfirm={handleConfirmOrder}
-                                        onCancel={handleCancelOrder}
-                                    />
-                                ))}
-                            </div>
+                            <OrderHistoryPage
+                                orders={orders}
+                                setOrders={setOrders}
+                                setOrderStatus={setOrderStatus}
+                            />
                         )}
                     </div>
-                )}
-            </div>
+                </div>
+            </main>
+
+            <Footer />
         </div>
     );
 }
