@@ -7,19 +7,19 @@ function Footer() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
                     {/* Column 1 */}
                     <div>
-                        <h3 className="font-bold mb-4">Về GrabFood</h3>
+                        <h3 className="font-bold mb-4">Về FastFood</h3>
                         <ul className="space-y-2">
-                            <li><a href="#" className="hover:text-gray-200">Về GrabFood</a></li>
-                            <li><a href="#" className="hover:text-gray-200">Về Grab</a></li>
+                            <li><a href="#" className="hover:text-gray-200">Về FastFood</a></li>
+                            <li><a href="#" className="hover:text-gray-200">Về FastFood</a></li>
                             <li><a href="#" className="hover:text-gray-200">Blog</a></li>
                         </ul>
                     </div>
 
                     {/* Column 2 */}
                     <div>
-                        <h3 className="font-bold mb-4">Mở quán trên GrabFood</h3>
+                        <h3 className="font-bold mb-4">Mở quán trên FastFood</h3>
                         <ul className="space-y-2">
-                            <li><a href="#" className="hover:text-gray-200">Trở thành tài xế Grab</a></li>
+                            <li><a href="#" className="hover:text-gray-200">Trở thành tài xế FastFood</a></li>
                         </ul>
                     </div>
 
@@ -51,7 +51,7 @@ function Footer() {
                 </div>
 
                 <div className="border-t border-white/20 pt-6 flex flex-col md:flex-row justify-between items-center">
-                    <p>© 2025 Grab</p>
+                    <p>© 2025 FastFood</p>
                     <div className="flex space-x-4 mt-4 md:mt-0">
                         <a href="#" className="hover:text-gray-200">Câu hỏi thường gặp</a>
                         <span>•</span>
