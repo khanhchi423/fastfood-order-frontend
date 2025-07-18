@@ -1,195 +1,194 @@
-import { useState, useEffect } from 'react';
-import { Loader } from 'lucide-react';
-import Header from './components/layout/Header';
-import Footer from './components/layout/Footer';
-import Tabs from './components/layout/Tabs';
-import SearchBar from './components/home/SearchBar';
-import Categories from './components/home/Categories';
+import React, { useState, useEffect } from 'react';
+import Sidebar from './components/Sidebar';
 import OrderPage from './pages/OrderPage';
-import OrderHistoryPage from './pages/OrderHistoryPage';
-import OrderStatus from './components/shared/OrderStatus';
-import { loadMenuItems, loadOrders } from './services/OrderService';
-import './styles/App.css'
-function App() {
-    // Basic state
-    const [activeTab, setActiveTab] = useState('order');
-    const [menuItems, setMenuItems] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [orderStatus, setOrderStatus] = useState(null);
+import OrdersPage from './pages/OrderHistoryPage';
+import ApiService from './services/apiService';
+import './styles/App.css';
 
-    // Search and filter state
-    const [searchQuery, setSearchQuery] = useState('');
-    const [searchLoading, setSearchLoading] = useState(false);
-    const [categoryFilter, setCategoryFilter] = useState('all');
+const App = () => {
+  const [activeTab, setActiveTab] = useState('order');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [cart, setCart] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [menuItems, setMenuItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [orderStatus, setOrderStatus] = useState(null);
+  const [customerInfo, setCustomerInfo] = useState({
+    name: '',
+    phone: '',
+    address: ''
+  });
 
-    // Cart state
-    const [cart, setCart] = useState(() => {
-        const savedCart = localStorage.getItem('cart');
-        return savedCart ? JSON.parse(savedCart) : [];
-    });
+  // Load initial data when component mounts
+  useEffect(() => {
+    loadInitialData();
+  }, []);
 
-    // Orders state
-    const [orders, setOrders] = useState([]);
+  const loadInitialData = async () => {
+    try {
+      setLoading(true);
+      // Load menu items and orders concurrently
+      const [menuData, ordersData] = await Promise.all([
+        ApiService.loadMenuItems(),
+        ApiService.loadOrders()
+      ]);
+      
+      setMenuItems(menuData);
+      setOrders(ordersData);
+    } catch (error) {
+      setOrderStatus({ 
+        type: 'error', 
+        message: 'Failed to load data. Using fallback data.' 
+      });
+      // You can keep your mockData as fallback
+      console.error('Failed to load initial data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    // Save cart to localStorage
-    useEffect(() => {
-        localStorage.setItem('cart', JSON.stringify(cart));
-    }, [cart]);
+  // Refresh orders data
+  const refreshOrders = async () => {
+    try {
+      const ordersData = await ApiService.loadOrders();
+      setOrders(ordersData);
+    } catch (error) {
+      console.error('Failed to refresh orders:', error);
+    }
+  };
 
-    // Initial data loading
-    useEffect(() => {
-        loadInitialData();
-    }, []);
-
-    const loadInitialData = async () => {
-        setLoading(true);
-        try {
-            await Promise.all([
-                loadMenuData(),
-                loadOrdersData()
-            ]);
-        } catch (error) {
-            console.error('Error loading initial data:', error);
-            setOrderStatus({
-                type: 'error',
-                message: 'Có lỗi xảy ra khi tải dữ liệu. Vui lòng thử lại sau.'
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const loadMenuData = async () => {
-        try {
-            const items = await loadMenuItems();
-            setMenuItems(items);
-        } catch (error) {
-            console.error('Error loading menu:', error);
-            throw error;
-        }
-    };
-
-    const loadOrdersData = async () => {
-        try {
-            const ordersData = await loadOrders();
-            setOrders(ordersData);
-        } catch (error) {
-            console.error('Error loading orders:', error);
-            throw error;
-        }
-    };
-
-    const handleSearch = (query) => {
-        setSearchQuery(query);
-        setSearchLoading(true);
-
-        // Reset category filter when searching
-        setCategoryFilter('all');
-
-        // Simulate search delay
-        setTimeout(() => {
-            setSearchLoading(false);
-        }, 300);
-    };
-
-    const handleCategorySelect = (category) => {
-        setCategoryFilter(category);
-        // Reset search when changing category
-        setSearchQuery('');
-    };
-
-    const handleTabChange = (tab) => {
-        setActiveTab(tab);
-        // Clear any existing status messages
-        setOrderStatus(null);
-        
-        // Reset filters
-        setSearchQuery('');
-        setCategoryFilter('all');
-        
-        // Reload orders when switching to orders tab
-        if (tab === 'orders') {
-            loadOrdersData();
-        }
-    };
-
-    // Filter menu items based on search and category
-    const filteredMenuItems = menuItems.filter(item => {
-        const matchesSearch = searchQuery 
-            ? item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              item.description.toLowerCase().includes(searchQuery.toLowerCase())
-            : true;
-
-        const matchesCategory = categoryFilter === 'all' 
-            ? true 
-            : item.category === categoryFilter;
-
-        return matchesSearch && matchesCategory;
-    });
-
-    if (loading && !menuItems.length) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <Loader className="w-8 h-8 animate-spin mx-auto text-green-500" />
-                    <p className="mt-2 text-gray-600">Đang tải dữ liệu...</p>
-                </div>
-            </div>
-        );
+  const placeOrder = async () => {
+    // Validation
+    if (!customerInfo.name || !customerInfo.phone || !customerInfo.address) {
+      setOrderStatus({ type: 'error', message: 'Please fill in all customer information' });
+      return;
     }
 
-    return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
-            <Header cartItemCount={cart.length} />
-            
-            <main className="flex-grow">
-                <div className="max-w-7xl mx-auto px-4 py-6">
-                    {/* Search Bar */}
-                    <div className="mb-8">
-                        <SearchBar 
-                            onSearch={handleSearch}
-                            loading={searchLoading}
-                            initialValue={searchQuery}
-                        />
-                    </div>
+    if (cart.length === 0) {
+      setOrderStatus({ type: 'error', message: 'Please add items to your cart' });
+      return;
+    }
 
-                    {/* Categories */}
-                    <div className="mb-8">
-                        <Categories 
-                            onCategorySelect={handleCategorySelect}
-                            selectedCategory={categoryFilter}
-                        />
-                    </div>
+    try {
+      setLoading(true);
+      
+      // Prepare order data for API
+      const orderData = {
+        customerName: customerInfo.name,
+        customerPhone: customerInfo.phone,
+        customerAddress: customerInfo.address,
+        items: cart.map(item => ({
+            itemId: item.itemId,
+            name: item.name,          
+            price: item.price,     
+            image: item.image,        
+            description: item.description, 
+            quantity: item.quantity
+        }))
+      };
 
-                    {/* Tabs and Content */}
-                    <div>
-                        <Tabs activeTab={activeTab} onTabChange={handleTabChange} />
-                        
-                        <OrderStatus orderStatus={orderStatus} />
-                        
-                        {activeTab === 'order' ? (
-                            <OrderPage
-                                menuItems={filteredMenuItems}
-                                loading={loading || searchLoading}
-                                cart={cart}
-                                setCart={setCart}
-                                orderStatus={orderStatus}
-                                setOrderStatus={setOrderStatus}
-                            />
-                        ) : (
-                            <OrderHistoryPage
-                                orders={orders}
-                                setOrders={setOrders}
-                                setOrderStatus={setOrderStatus}
-                            />
-                        )}
-                    </div>
-                </div>
-            </main>
+      // Place order via API
+      const result = await ApiService.placeOrder(orderData);
+      
+      setOrderStatus({ 
+        type: 'success', 
+        message: `Order placed successfully! Order ID: ${result.orderId}`,
+        orderId: result.orderId
+      });
+      
+      // Clear cart and customer info
+      setCart([]);
+      setCustomerInfo({ name: '', phone: '', address: '' });
+      
+      // Refresh orders list
+      await refreshOrders();
+      
+      // Auto clear status after 5 seconds
+      setTimeout(() => setOrderStatus(null), 5000);
+    } catch (error) {
+      setOrderStatus({ 
+        type: 'error', 
+        message: error.message || 'Failed to place order' 
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-            <Footer />
-        </div>
-    );
-}
+  const confirmOrder = async (orderId) => {
+    try {
+      await ApiService.confirmOrder(orderId);
+      setOrderStatus({ type: 'success', message: 'Order confirmed successfully!' });
+      
+      // Refresh orders list
+      await refreshOrders();
+      
+      setTimeout(() => setOrderStatus(null), 3000);
+    } catch (error) {
+      setOrderStatus({ 
+        type: 'error', 
+        message: error.message || 'Failed to confirm order' 
+      });
+    }
+  };
+
+  const cancelOrder = async (orderId) => {
+    try {
+      await ApiService.cancelOrder(orderId);
+      setOrderStatus({ type: 'success', message: 'Order cancelled successfully!' });
+      
+      // Refresh orders list
+      await refreshOrders();
+      
+      setTimeout(() => setOrderStatus(null), 3000);
+    } catch (error) {
+      setOrderStatus({ 
+        type: 'error', 
+        message: error.message || 'Failed to cancel order' 
+      });
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen bg-gray-100">
+      <Sidebar 
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        selectedCategory={selectedCategory}
+        setSelectedCategory={setSelectedCategory}
+      />
+      
+      <main className="flex-1">
+        {orderStatus && (
+          <div className={`p-4 text-center ${
+            orderStatus.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+          }`}>
+            {orderStatus.message}
+          </div>
+        )}
+        
+        {activeTab === 'order' ? (
+          <OrderPage
+            cart={cart}
+            setCart={setCart}
+            customerInfo={customerInfo}
+            setCustomerInfo={setCustomerInfo}
+            onPlaceOrder={placeOrder}
+            loading={loading}
+            menuItems={menuItems}
+            selectedCategory={selectedCategory}
+          />
+        ) : (
+          <OrdersPage
+            orders={orders}
+            onConfirmOrder={confirmOrder}
+            onCancelOrder={cancelOrder}
+            loading={loading}
+          />
+        )}
+      </main>
+    </div>
+  );
+};
 
 export default App;
