@@ -1,7 +1,7 @@
 // src/config/config.js
 const config = {
   // API Configuration
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'https://your-api-id.execute-api.ap-southeast-1.amazonaws.com/prod',
+  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'https://0nxpvdebt3.execute-api.ap-southeast-1.amazonaws.com/prod',
 
   // Development mode - set to true to use mock data instead of API
   USE_MOCK_DATA: import.meta.env.VITE_USE_MOCK_DATA === 'true' || false,
